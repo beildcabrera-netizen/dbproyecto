@@ -1,0 +1,147 @@
+@page "/actividades"
+@inject ActividadService ActividadService
+@inject InscripcionService InscripcionService
+@inject IJSRuntime JS
+
+<PageTitle>Actividades · GimnasioPro</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1 class="page-title">Actividades <span class="count-chip">@_actividades.Count</span></h1>
+        <p class="page-sub">
+            Catálogo de actividades del gimnasio. Junto con los socios forman la relación
+            <strong>N:N</strong> que se materializa en las inscripciones.
+        </p>
+    </div>
+    <a class="btn-app btn-app-accent" href="actividades/crear">+ Nueva actividad</a>
+</div>
+
+@if (!string.IsNullOrEmpty(_mensaje))
+{
+    <div class="alert alert-@_mensajeTipo">@_mensaje</div>
+}
+
+@if (_actividades.Count == 0)
+{
+    <div class="empty-state">
+        <strong>No hay registros</strong>
+        <span class="empty-detail">Todavía no hay actividades cargadas. Cree la primera con «Nueva actividad».</span>
+    </div>
+}
+else
+{
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Actividad</th>
+                    <th>Categoría</th>
+                    <th>Día</th>
+                    <th>Horario</th>
+                    <th>Cupo</th>
+                    <th class="col-actions">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var actividad in _actividades)
+                {
+                    var inscritos = _inscritos.TryGetValue(actividad.Id, out var cantidad) ? cantidad : 0;
+                    var llena = inscritos >= actividad.CupoMaximo;
+                    <tr>
+                        <td data-label="Actividad">
+                            <span class="cell-strong">@actividad.Nombre</span>
+                        </td>
+                        <td data-label="Categoría">@actividad.Categoria</td>
+                        <td data-label="Día">@actividad.DiaSemana</td>
+                        <td data-label="Horario" class="mono">@actividad.Horario</td>
+                        <td data-label="Cupo">
+                            @if (llena)
+                            {
+                                <span class="pill pill-danger">@inscritos/@actividad.CupoMaximo · llena</span>
+                            }
+                            else
+                            {
+                                <span class="pill pill-outline">@inscritos/@actividad.CupoMaximo</span>
+                            }
+                        </td>
+                        <td data-label="Acciones">
+                            <div class="cell-actions">
+                                <a class="btn-app btn-app-sm btn-app-dark" href="actividades/@actividad.Id/editar">Editar</a>
+                                <button class="btn-app btn-app-sm btn-app-danger"
+                                        @onclick="() => DesactivarAsync(actividad)">Desactivar</button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<Actividad> _actividades = new();
+    private Dictionary<ObjectId, long> _inscritos = new();
+    private string? _mensaje;
+    private string _mensajeTipo = "success";
+
+    [SupplyParameterFromQuery(Name = "mensaje")]
+    public string? Mensaje { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(Mensaje))
+        {
+            Exito(Mensaje);
+        }
+
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _actividades = await ActividadService.GetActivasAsync();
+            _inscritos = await InscripcionService.ContarPorActividadAsync();
+        }
+        catch (Exception ex)
+        {
+            Error($"No se pudieron cargar las actividades: {ex.Message}");
+        }
+    }
+
+    private async Task DesactivarAsync(Actividad actividad)
+    {
+        var confirmado = await JS.InvokeAsync<bool>(
+            "confirm",
+            $"¿Seguro que desea desactivar la actividad «{actividad.Nombre}»? Se realizará un borrado lógico (Activo = false).");
+
+        if (!confirmado)
+        {
+            return;
+        }
+
+        try
+        {
+            await ActividadService.DesactivarAsync(actividad.Id);
+            await CargarAsync();
+            Exito($"La actividad «{actividad.Nombre}» fue desactivada (borrado lógico).");
+        }
+        catch (Exception ex)
+        {
+            Error($"No se pudo desactivar la actividad: {ex.Message}");
+        }
+    }
+
+    private void Exito(string texto)
+    {
+        _mensaje = texto;
+        _mensajeTipo = "success";
+    }
+
+    private void Error(string texto)
+    {
+        _mensaje = texto;
+        _mensajeTipo = "danger";
+    }
+}

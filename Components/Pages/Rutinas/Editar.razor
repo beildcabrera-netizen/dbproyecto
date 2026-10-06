@@ -1,0 +1,171 @@
+@page "/rutinas/{Id}/editar"
+@inject RutinaService RutinaService
+@inject EntrenadorService EntrenadorService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Editar rutina · GimnasioPro</PageTitle>
+
+<a class="back-link" href="rutinas">← Volver a la lista de rutinas</a>
+
+@if (_cargado && _modelo is null)
+{
+    <div class="empty-state">
+        <strong>Rutina no encontrada</strong>
+        <span class="empty-detail">El identificador recibido no corresponde a ninguna rutina.</span>
+    </div>
+}
+else if (_modelo is not null)
+{
+    <div class="page-head">
+        <div>
+            <h1 class="page-title">Editar rutina</h1>
+            <p class="page-sub">Modifique los campos y confirme los cambios. La fecha de creación no se edita.</p>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_mensaje))
+    {
+        <div class="alert alert-@_mensajeTipo">@_mensaje</div>
+    }
+
+    <div class="form-card">
+        <EditForm Model="_modelo" OnValidSubmit="GuardarAsync" FormName="editarRutina">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="field">
+                <label class="field-label" for="entrenador">Entrenador (lado «1» de la relación) *</label>
+                <select id="entrenador" class="select @(_entrenadorTocado && string.IsNullOrEmpty(_entrenadorSeleccionado) ? "invalid" : "")"
+                        @bind="_entrenadorSeleccionado">
+                    <option value="">Seleccione un entrenador…</option>
+                    @foreach (var entrenador in _entrenadores)
+                    {
+                        <option value="@entrenador.Id">@entrenador.Apellido, @entrenador.Nombre — @entrenador.Especialidad</option>
+                    }
+                </select>
+                @if (_entrenadorTocado && string.IsNullOrEmpty(_entrenadorSeleccionado))
+                {
+                    <span class="form-error-inline">Debe seleccionar un entrenador activo.</span>
+                }
+            </div>
+
+            <div class="field">
+                <label class="field-label" for="nombre">Nombre *</label>
+                <InputText id="nombre" class="input" @bind-Value="_modelo.Nombre" />
+                <ValidationMessage For="() => _modelo.Nombre" />
+            </div>
+
+            <div class="field">
+                <label class="field-label" for="descripcion">Descripción *</label>
+                <InputTextArea id="descripcion" class="textarea" @bind-Value="_modelo.Descripcion" />
+                <ValidationMessage For="() => _modelo.Descripcion" />
+            </div>
+
+            <div class="form-row">
+                <div class="field">
+                    <label class="field-label" for="dificultad">Dificultad *</label>
+                    <InputSelect id="dificultad" class="select" @bind-Value="_modelo.Dificultad">
+                        <option value="">Seleccione…</option>
+                        <option value="Baja">Baja</option>
+                        <option value="Media">Media</option>
+                        <option value="Alta">Alta</option>
+                    </InputSelect>
+                    <ValidationMessage For="() => _modelo.Dificultad" />
+                </div>
+                <div class="field">
+                    <label class="field-label" for="duracion">Duración (días) *</label>
+                    <InputNumber id="duracion" class="input" @bind-Value="_modelo.DuracionDias" ParsingErrorMessage="El campo {0} debe ser un número." />
+                    <ValidationMessage For="() => _modelo.DuracionDias" />
+                </div>
+            </div>
+
+            @if (_cargado)
+            {
+                <div class="field">
+                    <span class="field-label">Fecha de creación</span>
+                    <span class="detail-value">@_modelo.FechaCreacion.ToString("dd/MM/yyyy")</span>
+                    <span class="field-hint">Dato de solo lectura, asignado al crear la rutina.</span>
+                </div>
+            }
+
+            <div class="form-actions">
+                <button type="submit" class="btn-app btn-app-accent" disabled="@_guardando">Guardar cambios</button>
+                <a class="btn-app btn-app-ghost" href="rutinas">Cancelar</a>
+            </div>
+        </EditForm>
+    </div>
+}
+
+@code {
+    [Parameter] public string Id { get; set; } = string.Empty;
+
+    private Rutina? _modelo;
+    private List<Entrenador> _entrenadores = new();
+    private string _entrenadorSeleccionado = string.Empty;
+    private bool _entrenadorTocado;
+    private bool _cargado;
+    private bool _guardando;
+    private string? _mensaje;
+    private string _mensajeTipo = "success";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            _entrenadores = await EntrenadorService.GetActivosAsync();
+
+            if (ObjectId.TryParse(Id, out var rutinaId))
+            {
+                _modelo = await RutinaService.GetPorIdAsync(rutinaId);
+                if (_modelo is not null)
+                {
+                    _entrenadorSeleccionado = _modelo.EntrenadorId.ToString();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _mensaje = $"No se pudo cargar la rutina: {ex.Message}";
+            _mensajeTipo = "danger";
+        }
+        finally
+        {
+            _cargado = true;
+        }
+    }
+
+    private async Task GuardarAsync()
+    {
+        if (_modelo is null)
+        {
+            return;
+        }
+
+        _entrenadorTocado = true;
+        if (string.IsNullOrEmpty(_entrenadorSeleccionado) || !ObjectId.TryParse(_entrenadorSeleccionado, out var entrenadorId))
+        {
+            Error("Debe seleccionar un entrenador activo para la rutina.");
+            return;
+        }
+
+        _guardando = true;
+        try
+        {
+            _modelo.EntrenadorId = entrenadorId;
+            await RutinaService.ActualizarAsync(_modelo);
+            NavigationManager.NavigateTo(
+                "/rutinas?mensaje=" + Uri.EscapeDataString("Los datos de la rutina se actualizaron correctamente."));
+        }
+        catch (Exception ex)
+        {
+            _guardando = false;
+            Error($"No se pudieron guardar los cambios: {ex.Message}");
+        }
+    }
+
+    private void Error(string texto)
+    {
+        _mensaje = texto;
+        _mensajeTipo = "danger";
+    }
+}

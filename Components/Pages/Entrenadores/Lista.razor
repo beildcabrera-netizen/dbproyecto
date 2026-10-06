@@ -1,0 +1,142 @@
+@page "/entrenadores"
+@inject EntrenadorService EntrenadorService
+@inject RutinaService RutinaService
+@inject IJSRuntime JS
+
+<PageTitle>Entrenadores · GimnasioPro</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1 class="page-title">Entrenadores <span class="count-chip">@_entrenadores.Count</span></h1>
+        <p class="page-sub">
+            Cada entrenador puede tener muchas rutinas: relación <strong>1:N</strong>.
+            La columna «Rutinas» muestra la cantidad de rutinas activas de cada entrenador.
+        </p>
+    </div>
+    <a class="btn-app btn-app-accent" href="entrenadores/crear">+ Nuevo entrenador</a>
+</div>
+
+@if (!string.IsNullOrEmpty(_mensaje))
+{
+    <div class="alert alert-@_mensajeTipo">@_mensaje</div>
+}
+
+@if (_entrenadores.Count == 0)
+{
+    <div class="empty-state">
+        <strong>No hay registros</strong>
+        <span class="empty-detail">Todavía no hay entrenadores cargados. Cree el primero con «Nuevo entrenador».</span>
+    </div>
+}
+else
+{
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Entrenador</th>
+                    <th>Especialidad</th>
+                    <th>Correo</th>
+                    <th>Teléfono</th>
+                    <th>Contratación</th>
+                    <th>Rutinas</th>
+                    <th class="col-actions">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var entrenador in _entrenadores)
+                {
+                    var rutinas = _rutinasPorEntrenador.TryGetValue(entrenador.Id, out var cantidad) ? cantidad : 0;
+                    <tr>
+                        <td data-label="Entrenador">
+                            <span class="cell-strong">@entrenador.Nombre @entrenador.Apellido</span>
+                        </td>
+                        <td data-label="Especialidad">@entrenador.Especialidad</td>
+                        <td data-label="Correo">@entrenador.Email</td>
+                        <td data-label="Teléfono" class="mono">@entrenador.Telefono</td>
+                        <td data-label="Contratación">@entrenador.FechaContratacion.ToString("dd/MM/yyyy")</td>
+                        <td data-label="Rutinas">
+                            <span class="pill pill-outline">@rutinas activas</span>
+                        </td>
+                        <td data-label="Acciones">
+                            <div class="cell-actions">
+                                <a class="btn-app btn-app-sm btn-app-ghost" href="entrenadores/@entrenador.Id">Ver</a>
+                                <a class="btn-app btn-app-sm btn-app-dark" href="entrenadores/@entrenador.Id/editar">Editar</a>
+                                <button class="btn-app btn-app-sm btn-app-danger"
+                                        @onclick="() => DesactivarAsync(entrenador)">Desactivar</button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<Entrenador> _entrenadores = new();
+    private Dictionary<ObjectId, int> _rutinasPorEntrenador = new();
+    private string? _mensaje;
+    private string _mensajeTipo = "success";
+
+    [SupplyParameterFromQuery(Name = "mensaje")]
+    public string? Mensaje { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(Mensaje))
+        {
+            Exito(Mensaje);
+        }
+
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _entrenadores = await EntrenadorService.GetActivosAsync();
+            _rutinasPorEntrenador = await RutinaService.ContarActivasPorEntrenadorAsync();
+        }
+        catch (Exception ex)
+        {
+            Error($"No se pudieron cargar los entrenadores: {ex.Message}");
+        }
+    }
+
+    private async Task DesactivarAsync(Entrenador entrenador)
+    {
+        var confirmado = await JS.InvokeAsync<bool>(
+            "confirm",
+            $"¿Seguro que desea desactivar a {entrenador.Nombre} {entrenador.Apellido}? Sus rutinas seguirán existiendo (borrado lógico).");
+
+        if (!confirmado)
+        {
+            return;
+        }
+
+        try
+        {
+            await EntrenadorService.DesactivarAsync(entrenador.Id);
+            await CargarAsync();
+            Exito($"El entrenador {entrenador.Nombre} {entrenador.Apellido} fue desactivado (borrado lógico).");
+        }
+        catch (Exception ex)
+        {
+            Error($"No se pudo desactivar el entrenador: {ex.Message}");
+        }
+    }
+
+    private void Exito(string texto)
+    {
+        _mensaje = texto;
+        _mensajeTipo = "success";
+    }
+
+    private void Error(string texto)
+    {
+        _mensaje = texto;
+        _mensajeTipo = "danger";
+    }
+}

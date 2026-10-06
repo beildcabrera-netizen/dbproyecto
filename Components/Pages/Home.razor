@@ -1,0 +1,109 @@
+﻿@page "/"
+@inject SocioService SocioService
+@inject EntrenadorService EntrenadorService
+@inject RutinaService RutinaService
+@inject ActividadService ActividadService
+@inject InscripcionService InscripcionService
+
+<PageTitle>Dashboard · GimnasioPro</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1 class="page-title">Panel general</h1>
+        <p class="page-sub">
+            Estado actual de la base <strong class="mono">GimnasioDB</strong> (MongoDB) y de las
+            tres relaciones trabajadas en la materia.
+        </p>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(_error))
+{
+    <div class="alert alert-danger">@_error</div>
+}
+
+<div class="stat-grid">
+    <div class="stat-card">
+        <span class="stat-value">@_socios</span>
+        <span class="stat-label">Socios activos</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-value">@_entrenadores</span>
+        <span class="stat-label">Entrenadores</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-value">@_rutinas</span>
+        <span class="stat-label">Rutinas activas</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-value">@_actividades</span>
+        <span class="stat-label">Actividades</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-value">@_inscripciones</span>
+        <span class="stat-label">Inscripciones activas</span>
+    </div>
+</div>
+
+<h2 class="section-title">Relaciones implementadas</h2>
+
+<div class="rel-grid">
+    <article class="rel-card">
+        <span class="rel-tag rel-one-one">1:1</span>
+        <h3>Socio ↔ Ficha médica</h3>
+        <p>
+            Cada socio tiene como <strong>una única</strong> ficha médica activa. Se crea y edita
+            desde la ficha del socio; si no existe, el botón &laquo;Crear ficha médica&raquo; está disponible.
+        </p>
+        <p class="rel-tech">Índice único parcial: fichas_medicas.SocioId (solo documentos con Activo = true)</p>
+        <a class="rel-link" href="socios">Gestionar socios →</a>
+    </article>
+
+    <article class="rel-card">
+        <span class="rel-tag rel-one-many">1:N</span>
+        <h3>Entrenador → Rutinas</h3>
+        <p>
+            Un entrenador puede tener muchas rutinas y cada rutina pertenece a un solo entrenador.
+            El detalle del entrenador lista todas sus rutinas activas.
+        </p>
+        <p class="rel-tech">Colección rutinas · referencia EntrenadorId (ObjectId)</p>
+        <a class="rel-link" href="entrenadores">Gestionar entrenadores →</a>
+    </article>
+
+    <article class="rel-card">
+        <span class="rel-tag rel-many-many">N:N</span>
+        <h3>Socios ↔ Actividades</h3>
+        <p>
+            Un socio puede inscribirse en varias actividades y una actividad tiene varios socios.
+            Se resuelve con la colección intermedia <strong>inscripciones</strong>, con alta y
+            baja lógica (sin edición, según la consigna).
+        </p>
+        <p class="rel-tech">Colección intermedia inscripciones: SocioId + ActividadId + reglas de negocio</p>
+        <a class="rel-link" href="inscripciones">Gestionar inscripciones →</a>
+    </article>
+</div>
+
+@code {
+    private long _socios;
+    private long _entrenadores;
+    private long _rutinas;
+    private long _actividades;
+    private long _inscripciones;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _socios = await SocioService.ContarActivosAsync();
+            _entrenadores = await EntrenadorService.ContarActivosAsync();
+            _rutinas = await RutinaService.ContarActivasAsync();
+            _actividades = await ActividadService.ContarActivasAsync();
+            _inscripciones = await InscripcionService.ContarActivasAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"No se pudo consultar MongoDB: {ex.Message}";
+        }
+    }
+}

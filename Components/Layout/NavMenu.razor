@@ -1,0 +1,73 @@
+﻿<div class="brand">
+    <div class="brand-mark">G</div>
+    <div class="brand-copy">
+        <span class="brand-name">GimnasioPro</span>
+        <span class="brand-tag">Gestión de gimnasio</span>
+    </div>
+    <label for="nav-toggle" class="nav-burger" title="Abrir o cerrar el menú">☰</label>
+</div>
+
+<input type="checkbox" id="nav-toggle" title="Menú de navegación" class="nav-toggler" />
+
+<div class="nav-scrollable">
+    <nav class="nav-list">
+        <div class="nav-group">
+            <div class="nav-group-title">General</div>
+            <div class="nav-item">
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                    <span class="nav-ico" aria-hidden="true">◆</span> Dashboard
+                </NavLink>
+            </div>
+        </div>
+
+        <div class="nav-group">
+            <div class="nav-group-title">
+                Socios y fichas
+                <span class="rel-badge rel-one-one">1:1</span>
+            </div>
+            <div class="nav-item">
+                <NavLink class="nav-link" href="socios">
+                    <span class="nav-ico" aria-hidden="true">◉</span> Socios
+                </NavLink>
+            </div>
+        </div>
+
+        <div class="nav-group">
+            <div class="nav-group-title">
+                Entrenadores y rutinas
+                <span class="rel-badge rel-one-many">1:N</span>
+            </div>
+            <div class="nav-item">
+                <NavLink class="nav-link" href="entrenadores">
+                    <span class="nav-ico" aria-hidden="true">◉</span> Entrenadores
+                </NavLink>
+            </div>
+            <div class="nav-item">
+                <NavLink class="nav-link" href="rutinas">
+                    <span class="nav-ico" aria-hidden="true">◉</span> Rutinas
+                </NavLink>
+            </div>
+        </div>
+
+        <div class="nav-group">
+            <div class="nav-group-title">
+                Actividades e inscripciones
+                <span class="rel-badge rel-many-many">N:N</span>
+            </div>
+            <div class="nav-item">
+                <NavLink class="nav-link" href="actividades">
+                    <span class="nav-ico" aria-hidden="true">◉</span> Actividades
+                </NavLink>
+            </div>
+            <div class="nav-item">
+                <NavLink class="nav-link" href="inscripciones">
+                    <span class="nav-ico" aria-hidden="true">◉</span> Inscripciones
+                </NavLink>
+            </div>
+        </div>
+
+        <div class="nav-footer">
+            Base de Datos II · MongoDB
+        </div>
+    </nav>
+</div>

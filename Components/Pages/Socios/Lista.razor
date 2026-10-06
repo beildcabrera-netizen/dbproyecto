@@ -1,0 +1,149 @@
+@page "/socios"
+@inject SocioService SocioService
+@inject IJSRuntime JS
+
+<PageTitle>Socios · GimnasioPro</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1 class="page-title">Socios <span class="count-chip">@_socios.Count</span></h1>
+        <p class="page-sub">
+            Alta, consulta y <strong>baja lógica</strong> de socios. Cada socio se relaciona
+            <strong>1:1</strong> con su ficha médica.
+        </p>
+    </div>
+    <a class="btn-app btn-app-accent" href="socios/crear">+ Nuevo socio</a>
+</div>
+
+@if (!string.IsNullOrEmpty(_mensaje))
+{
+    <div class="alert alert-@_mensajeTipo">@_mensaje</div>
+}
+
+<div class="toolbar">
+    <div class="field grow">
+        <label class="field-label" for="busqueda">Buscar socio</label>
+        <input id="busqueda" class="input" type="search" placeholder="Nombre, apellido, DNI o correo…"
+               @bind="_busqueda" @bind:event="oninput" @bind:after="CargarAsync" />
+    </div>
+    <button class="btn-app btn-app-ghost" @onclick="CargarAsync">Actualizar</button>
+</div>
+
+@if (_socios.Count == 0)
+{
+    <div class="empty-state">
+        <strong>No hay registros</strong>
+        <span class="empty-detail">
+            @(string.IsNullOrWhiteSpace(_busqueda)
+                ? "Todavía no hay socios cargados. Cree el primero con «Nuevo socio»."
+                : "Ningún socio coincide con la búsqueda actual.")
+        </span>
+    </div>
+}
+else
+{
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Socio</th>
+                    <th>DNI</th>
+                    <th>Correo</th>
+                    <th>Teléfono</th>
+                    <th>Fecha de alta</th>
+                    <th class="col-actions">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var socio in _socios)
+                {
+                    <tr>
+                        <td data-label="Socio">
+                            <span class="cell-strong">@socio.Nombre @socio.Apellido</span>
+                        </td>
+                        <td data-label="DNI" class="mono">@socio.Dni</td>
+                        <td data-label="Correo">@socio.Email</td>
+                        <td data-label="Teléfono" class="mono">@socio.Telefono</td>
+                        <td data-label="Fecha de alta">@socio.FechaAlta.ToString("dd/MM/yyyy")</td>
+                        <td data-label="Acciones">
+                            <div class="cell-actions">
+                                <a class="btn-app btn-app-sm btn-app-ghost" href="socios/@socio.Id">Ver</a>
+                                <a class="btn-app btn-app-sm btn-app-dark" href="socios/@socio.Id/editar">Editar</a>
+                                <button class="btn-app btn-app-sm btn-app-danger"
+                                        @onclick="() => DesactivarAsync(socio)">Desactivar</button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<Socio> _socios = new();
+    private string? _busqueda;
+    private string? _mensaje;
+    private string _mensajeTipo = "success";
+
+    /// <summary>Success message redirected from create/edit pages.</summary>
+    [SupplyParameterFromQuery(Name = "mensaje")]
+    public string? Mensaje { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(Mensaje))
+        {
+            Exito(Mensaje);
+        }
+
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            _socios = await SocioService.GetActivosAsync(_busqueda);
+        }
+        catch (Exception ex)
+        {
+            Error($"No se pudieron cargar los socios: {ex.Message}");
+        }
+    }
+
+    private async Task DesactivarAsync(Socio socio)
+    {
+        var confirmado = await JS.InvokeAsync<bool>(
+            "confirm",
+            $"¿Seguro que desea desactivar a {socio.Nombre} {socio.Apellido}? Se realiza un borrado lógico (Activo = false).");
+
+        if (!confirmado)
+        {
+            return;
+        }
+
+        try
+        {
+            await SocioService.DesactivarAsync(socio.Id);
+            await CargarAsync();
+            Exito($"El socio {socio.Nombre} {socio.Apellido} fue desactivado (borrado lógico).");
+        }
+        catch (Exception ex)
+        {
+            Error($"No se pudo desactivar el socio: {ex.Message}");
+        }
+    }
+
+    private void Exito(string texto)
+    {
+        _mensaje = texto;
+        _mensajeTipo = "success";
+    }
+
+    private void Error(string texto)
+    {
+        _mensaje = texto;
+        _mensajeTipo = "danger";
+    }
+}

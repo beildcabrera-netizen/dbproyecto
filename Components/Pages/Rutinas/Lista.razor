@@ -1,0 +1,175 @@
+@page "/rutinas"
+@inject RutinaService RutinaService
+@inject EntrenadorService EntrenadorService
+@inject IJSRuntime JS
+
+<PageTitle>Rutinas · GimnasioPro</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1 class="page-title">Rutinas <span class="count-chip">@_rutinas.Count</span></h1>
+        <p class="page-sub">
+            Cada rutina pertenece a un solo entrenador: lado <strong>N</strong> de la relación <strong>1:N</strong>.
+            Filtre por entrenador para ver las rutinas de cada uno.
+        </p>
+    </div>
+    <a class="btn-app btn-app-accent" href="rutinas/crear">+ Nueva rutina</a>
+</div>
+
+@if (!string.IsNullOrEmpty(_mensaje))
+{
+    <div class="alert alert-@_mensajeTipo">@_mensaje</div>
+}
+
+<div class="toolbar">
+    <div class="field">
+        <label class="field-label" for="filtroEntrenador">Entrenador</label>
+        <select id="filtroEntrenador" class="select" @bind="_filtroEntrenador" @bind:after="CargarAsync">
+            <option value="">Todos los entrenadores</option>
+            @foreach (var entrenador in _entrenadores)
+            {
+                <option value="@entrenador.Id">@entrenador.Apellido, @entrenador.Nombre</option>
+            }
+        </select>
+    </div>
+    <div class="toolbar-spacer"></div>
+    <button class="btn-app btn-app-ghost" @onclick="CargarAsync">Actualizar</button>
+</div>
+
+@if (_rutinas.Count == 0)
+{
+    <div class="empty-state">
+        <strong>No hay registros</strong>
+        <span class="empty-detail">
+            @(string.IsNullOrEmpty(_filtroEntrenador)
+                ? "Todavía no hay rutinas cargadas. Cree la primera con «Nueva rutina»."
+                : "El entrenador seleccionado no tiene rutinas activas.")
+        </span>
+    </div>
+}
+else
+{
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Rutina</th>
+                    <th>Entrenador</th>
+                    <th>Dificultad</th>
+                    <th>Duración</th>
+                    <th>Creada</th>
+                    <th class="col-actions">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var rutina in _rutinas)
+                {
+                    var entrenador = NombreEntrenador(rutina.EntrenadorId);
+                    <tr>
+                        <td data-label="Rutina">
+                            <span class="cell-strong">@rutina.Nombre</span>
+                            <span class="cell-sub">@rutina.Descripcion</span>
+                        </td>
+                        <td data-label="Entrenador">@entrenador</td>
+                        <td data-label="Dificultad">
+                            <span class="pill pill-@rutina.Dificultad.ToLowerInvariant()">@rutina.Dificultad</span>
+                        </td>
+                        <td data-label="Duración">@rutina.DuracionDias días</td>
+                        <td data-label="Creada">@rutina.FechaCreacion.ToString("dd/MM/yyyy")</td>
+                        <td data-label="Acciones">
+                            <div class="cell-actions">
+                                <a class="btn-app btn-app-sm btn-app-dark" href="rutinas/@rutina.Id/editar">Editar</a>
+                                <button class="btn-app btn-app-sm btn-app-danger"
+                                        @onclick="() => DesactivarAsync(rutina)">Desactivar</button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<Rutina> _rutinas = new();
+    private List<Entrenador> _entrenadores = new();
+    private string _filtroEntrenador = string.Empty;
+    private string? _mensaje;
+    private string _mensajeTipo = "success";
+
+    [SupplyParameterFromQuery(Name = "mensaje")]
+    public string? Mensaje { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(Mensaje))
+        {
+            Exito(Mensaje);
+        }
+
+        try
+        {
+            _entrenadores = await EntrenadorService.GetActivosAsync();
+        }
+        catch (Exception ex)
+        {
+            Error($"No se pudieron cargar los entrenadores: {ex.Message}");
+        }
+
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            ObjectId? filtro = ObjectId.TryParse(_filtroEntrenador, out var id) ? id : null;
+            _rutinas = await RutinaService.GetActivasAsync(filtro);
+        }
+        catch (Exception ex)
+        {
+            Error($"No se pudieron cargar las rutinas: {ex.Message}");
+        }
+    }
+
+    private string NombreEntrenador(ObjectId entrenadorId)
+    {
+        var entrenador = _entrenadores.FirstOrDefault(e => e.Id == entrenadorId);
+        return entrenador is null ? "(sin entrenador)" : $"{entrenador.Nombre} {entrenador.Apellido}";
+    }
+
+    private async Task DesactivarAsync(Rutina rutina)
+    {
+        var confirmado = await JS.InvokeAsync<bool>(
+            "confirm",
+            $"¿Seguro que desea desactivar la rutina «{rutina.Nombre}»? Se realizará un borrado lógico (Activo = false).");
+
+        if (!confirmado)
+        {
+            return;
+        }
+
+        try
+        {
+            await RutinaService.DesactivarAsync(rutina.Id);
+            await CargarAsync();
+            Exito($"La rutina «{rutina.Nombre}» fue desactivada (borrado lógico).");
+        }
+        catch (Exception ex)
+        {
+            Error($"No se pudo desactivar la rutina: {ex.Message}");
+        }
+    }
+
+    private void Exito(string texto)
+    {
+        _mensaje = texto;
+        _mensajeTipo = "success";
+    }
+
+    private void Error(string texto)
+    {
+        _mensaje = texto;
+        _mensajeTipo = "danger";
+    }
+}

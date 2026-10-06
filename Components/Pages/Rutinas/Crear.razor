@@ -1,0 +1,159 @@
+@page "/rutinas/crear"
+@inject RutinaService RutinaService
+@inject EntrenadorService EntrenadorService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Nueva rutina · GimnasioPro</PageTitle>
+
+<a class="back-link" href="rutinas">← Volver a la lista de rutinas</a>
+
+<div class="page-head">
+    <div>
+        <h1 class="page-title">Nueva rutina</h1>
+        <p class="page-sub">
+            Toda rutina debe pertenecer a un entrenador: esto materializa la relación
+            <strong>1:N</strong> (un entrenador, muchas rutinas).
+        </p>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(_mensaje))
+{
+    <div class="alert alert-@_mensajeTipo">@_mensaje</div>
+}
+
+<div class="form-card">
+    <EditForm Model="_modelo" OnValidSubmit="GuardarAsync" FormName="crearRutina">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="field">
+            <label class="field-label" for="entrenador">Entrenador (lado «1» de la relación) *</label>
+            <select id="entrenador" class="select @(_entrenadorTocado && string.IsNullOrEmpty(_entrenadorSeleccionado) ? "invalid" : "")"
+                    @bind="_entrenadorSeleccionado">
+                <option value="">Seleccione un entrenador…</option>
+                @foreach (var entrenador in _entrenadores)
+                {
+                    <option value="@entrenador.Id">@entrenador.Apellido, @entrenador.Nombre — @entrenador.Especialidad</option>
+                }
+            </select>
+            @if (_entrenadorTocado && string.IsNullOrEmpty(_entrenadorSeleccionado))
+            {
+                <span class="form-error-inline">Debe seleccionar un entrenador activo.</span>
+            }
+            <span class="field-hint">Solo se listan entrenadores activos.</span>
+        </div>
+
+        <div class="field">
+            <label class="field-label" for="nombre">Nombre *</label>
+            <InputText id="nombre" class="input" @bind-Value="_modelo.Nombre" placeholder="Ej.: Full body para principiantes" />
+            <ValidationMessage For="() => _modelo.Nombre" />
+        </div>
+
+        <div class="field">
+            <label class="field-label" for="descripcion">Descripción *</label>
+            <InputTextArea id="descripcion" class="textarea" @bind-Value="_modelo.Descripcion" placeholder="Objetivos, ejercicios principales, progresión…" />
+            <ValidationMessage For="() => _modelo.Descripcion" />
+        </div>
+
+        <div class="form-row">
+            <div class="field">
+                <label class="field-label" for="dificultad">Dificultad *</label>
+                <InputSelect id="dificultad" class="select" @bind-Value="_modelo.Dificultad">
+                    <option value="">Seleccione…</option>
+                    <option value="Baja">Baja</option>
+                    <option value="Media">Media</option>
+                    <option value="Alta">Alta</option>
+                </InputSelect>
+                <ValidationMessage For="() => _modelo.Dificultad" />
+            </div>
+            <div class="field">
+                <label class="field-label" for="duracion">Duración (días) *</label>
+                <InputNumber id="duracion" class="input" @bind-Value="_modelo.DuracionDias" ParsingErrorMessage="El campo {0} debe ser un número." />
+                <ValidationMessage For="() => _modelo.DuracionDias" />
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn-app btn-app-accent" disabled="@_guardando">Guardar rutina</button>
+            <a class="btn-app btn-app-ghost" href="rutinas">Cancelar</a>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "entrenadorId")]
+    public string? EntrenadorIdQuery { get; set; }
+
+    private Rutina _modelo = new();
+    private List<Entrenador> _entrenadores = new();
+    private string _entrenadorSeleccionado = string.Empty;
+    private bool _entrenadorTocado;
+    private bool _guardando;
+    private string? _mensaje;
+    private string _mensajeTipo = "success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _entrenadores = await EntrenadorService.GetActivosAsync();
+
+            // Preselect the trainer when coming from a trainer's detail page.
+            if (!string.IsNullOrWhiteSpace(EntrenadorIdQuery) && ObjectId.TryParse(EntrenadorIdQuery, out var preseleccion))
+            {
+                if (_entrenadores.Any(e => e.Id == preseleccion))
+                {
+                    _entrenadorSeleccionado = EntrenadorIdQuery;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Error($"No se pudieron cargar los entrenadores: {ex.Message}");
+        }
+    }
+
+    private async Task GuardarAsync()
+    {
+        _entrenadorTocado = true;
+
+        if (string.IsNullOrEmpty(_entrenadorSeleccionado))
+        {
+            Error("Debe seleccionar un entrenador activo para la rutina.");
+            return;
+        }
+
+        if (string.IsNullOrEmpty(_modelo.Dificultad))
+        {
+            Error("Debe seleccionar la dificultad de la rutina.");
+            return;
+        }
+
+        if (!ObjectId.TryParse(_entrenadorSeleccionado, out var entrenadorId))
+        {
+            Error("El entrenador seleccionado no es válido.");
+            return;
+        }
+
+        _guardando = true;
+        try
+        {
+            _modelo.EntrenadorId = entrenadorId;
+            await RutinaService.CrearAsync(_modelo);
+            NavigationManager.NavigateTo(
+                "/rutinas?mensaje=" + Uri.EscapeDataString("La rutina se creó correctamente."));
+        }
+        catch (Exception ex)
+        {
+            _guardando = false;
+            Error($"No se pudo crear la rutina: {ex.Message}");
+        }
+    }
+
+    private void Error(string texto)
+    {
+        _mensaje = texto;
+        _mensajeTipo = "danger";
+    }
+}

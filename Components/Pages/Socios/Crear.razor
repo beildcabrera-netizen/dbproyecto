@@ -1,0 +1,105 @@
+@page "/socios/crear"
+@inject SocioService SocioService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Nuevo socio · GimnasioPro</PageTitle>
+
+<a class="back-link" href="socios">← Volver a la lista de socios</a>
+
+<div class="page-head">
+    <div>
+        <h1 class="page-title">Nuevo socio</h1>
+        <p class="page-sub">Complete los datos del alta. Los campos con <strong>*</strong> son obligatorios.</p>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(_mensaje))
+{
+    <div class="alert alert-@_mensajeTipo">@_mensaje</div>
+}
+
+<div class="form-card">
+    <EditForm Model="_modelo" OnValidSubmit="GuardarAsync" FormName="crearSocio">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="form-row">
+            <div class="field">
+                <label class="field-label" for="nombre">Nombre *</label>
+                <InputText id="nombre" class="input" @bind-Value="_modelo.Nombre" placeholder="Ej.: Lucía" />
+                <ValidationMessage For="() => _modelo.Nombre" />
+            </div>
+            <div class="field">
+                <label class="field-label" for="apellido">Apellido *</label>
+                <InputText id="apellido" class="input" @bind-Value="_modelo.Apellido" placeholder="Ej.: Fernández" />
+                <ValidationMessage For="() => _modelo.Apellido" />
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="field">
+                <label class="field-label" for="dni">DNI *</label>
+                <InputText id="dni" class="input" @bind-Value="_modelo.Dni" placeholder="7 u 8 dígitos, sin puntos" />
+                <ValidationMessage For="() => _modelo.Dni" />
+            </div>
+            <div class="field">
+                <label class="field-label" for="email">Correo electrónico *</label>
+                <InputText id="email" class="input" @bind-Value="_modelo.Email" placeholder="nombre@correo.com" />
+                <ValidationMessage For="() => _modelo.Email" />
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="field">
+                <label class="field-label" for="telefono">Teléfono *</label>
+                <InputText id="telefono" class="input" @bind-Value="_modelo.Telefono" placeholder="Ej.: 11-5555-0000" />
+                <ValidationMessage For="() => _modelo.Telefono" />
+            </div>
+            <div class="field">
+                <label class="field-label" for="nacimiento">Fecha de nacimiento *</label>
+                <InputDate id="nacimiento" class="input" @bind-Value="_modelo.FechaNacimiento" />
+                <ValidationMessage For="() => _modelo.FechaNacimiento" />
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn-app btn-app-accent" disabled="@_guardando">Guardar socio</button>
+            <a class="btn-app btn-app-ghost" href="socios">Cancelar</a>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    private Socio _modelo = new();
+    private bool _guardando;
+    private string? _mensaje;
+    private string _mensajeTipo = "success";
+
+    private async Task GuardarAsync()
+    {
+        if (_modelo.FechaNacimiento > DateTime.Today)
+        {
+            Error("La fecha de nacimiento no puede ser una fecha futura.");
+            return;
+        }
+
+        _guardando = true;
+        try
+        {
+            await SocioService.CrearAsync(_modelo);
+            NavigationManager.NavigateTo(
+                "/socios?mensaje=" + Uri.EscapeDataString("El socio se creó correctamente."));
+        }
+        catch (Exception ex)
+        {
+            _guardando = false;
+            Error($"No se pudo crear el socio: {ex.Message}");
+        }
+    }
+
+    private void Error(string texto)
+    {
+        _mensaje = texto;
+        _mensajeTipo = "danger";
+    }
+}

@@ -1,0 +1,174 @@
+@page "/fichas/{SocioId}"
+@inject SocioService SocioService
+@inject FichaMedicaService FichaMedicaService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Ficha médica · GimnasioPro</PageTitle>
+
+<a class="back-link" href="socios/@SocioId">← Volver al detalle del socio</a>
+
+@if (_error is not null)
+{
+    <div class="empty-state">
+        <strong>No se puede abrir la ficha</strong>
+        <span class="empty-detail">@_error</span>
+    </div>
+}
+else if (_socio is not null)
+{
+    <div class="page-head">
+        <div>
+            <h1 class="page-title">@(_existe ? "Editar ficha médica" : "Crear ficha médica")</h1>
+            <p class="page-sub">
+                Ficha de <strong>@_socio.Nombre @_socio.Apellido</strong> (DNI <span class="mono">@_socio.Dni</span>).
+                La relación <span class="rel-tag rel-one-one">1:1</span> permite
+                <strong>una única</strong> ficha activa por socio: aquí se crea o se edita, nunca una segunda.
+            </p>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_mensaje))
+    {
+        <div class="alert alert-@_mensajeTipo">@_mensaje</div>
+    }
+
+    <div class="form-card">
+        <EditForm Model="_modelo" OnValidSubmit="GuardarAsync" FormName="fichaMedica">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="form-row">
+                <div class="field">
+                    <label class="field-label" for="peso">Peso (kg) *</label>
+                    <InputNumber id="peso" class="input" @bind-Value="_modelo.Peso" placeholder="Ej.: 72.5" ParsingErrorMessage="El campo {0} debe ser un número." />
+                    <ValidationMessage For="() => _modelo.Peso" />
+                </div>
+                <div class="field">
+                    <label class="field-label" for="altura">Altura (cm) *</label>
+                    <InputNumber id="altura" class="input" @bind-Value="_modelo.Altura" placeholder="Ej.: 175" ParsingErrorMessage="El campo {0} debe ser un número." />
+                    <ValidationMessage For="() => _modelo.Altura" />
+                </div>
+            </div>
+
+            <div class="field">
+                <label class="field-label" for="sangre">Tipo de sangre *</label>
+                <InputSelect id="sangre" class="select" @bind-Value="_modelo.TipoSangre">
+                    <option value="">Seleccione…</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                </InputSelect>
+                <ValidationMessage For="() => _modelo.TipoSangre" />
+            </div>
+
+            <div class="field">
+                <label class="field-label" for="alergias">Alergias</label>
+                <InputText id="alergias" class="input" @bind-Value="_modelo.Alergias" placeholder="Ej.: Polen, mariscos… (opcional)" />
+                <ValidationMessage For="() => _modelo.Alergias" />
+                <span class="field-hint">Deje el campo vacío si no tiene alergias conocidas.</span>
+            </div>
+
+            <div class="field">
+                <label class="field-label" for="observaciones">Observaciones</label>
+                <InputTextArea id="observaciones" class="textarea" @bind-Value="_modelo.Observaciones" placeholder="Antecedentes, indicaciones médicas… (opcional)" />
+                <ValidationMessage For="() => _modelo.Observaciones" />
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-app btn-app-accent" disabled="@_guardando">
+                    @(_existe ? "Guardar cambios" : "Crear ficha médica")
+                </button>
+                <a class="btn-app btn-app-ghost" href="socios/@SocioId">Cancelar</a>
+            </div>
+        </EditForm>
+    </div>
+}
+
+@code {
+    [Parameter] public string SocioId { get; set; } = string.Empty;
+
+    private Socio? _socio;
+    private FichaMedica _modelo = new();
+    private bool _existe;
+    private bool _guardando;
+    private string? _error;
+    private string? _mensaje;
+    private string _mensajeTipo = "success";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!ObjectId.TryParse(SocioId, out var socioId))
+        {
+            _error = "El identificador del socio no es válido.";
+            return;
+        }
+
+        try
+        {
+            _socio = await SocioService.GetPorIdAsync(socioId);
+            if (_socio is null)
+            {
+                _error = "El socio indicado no existe.";
+                return;
+            }
+
+            var ficha = await FichaMedicaService.GetActivaPorSocioAsync(socioId);
+            _existe = ficha is not null;
+            _modelo = ficha ?? new FichaMedica { SocioId = socioId, TipoSangre = string.Empty };
+        }
+        catch (Exception ex)
+        {
+            _error = $"No se pudo consultar MongoDB: {ex.Message}";
+        }
+    }
+
+    private async Task GuardarAsync()
+    {
+        if (_socio is null)
+        {
+            return;
+        }
+
+        _guardando = true;
+        try
+        {
+            if (_existe)
+            {
+                await FichaMedicaService.ActualizarAsync(_modelo);
+            }
+            else
+            {
+                // Service guard: creating a second ACTIVE ficha for the same socio throws here,
+                // and the unique index rejects it at database level as well.
+                await FichaMedicaService.CrearAsync(_modelo);
+            }
+
+            NavigationManager.NavigateTo(
+                $"/socios/{SocioId}?mensaje=" +
+                Uri.EscapeDataString(_existe
+                    ? "La ficha médica se actualizó correctamente."
+                    : "La ficha médica se creó correctamente."));
+        }
+        catch (MongoDB.Driver.MongoWriteException ex) when (ex.WriteError?.Category == MongoDB.Driver.ServerErrorCategory.DuplicateKey)
+        {
+            _guardando = false;
+            Error("Este socio ya tiene una ficha médica: la relación 1:1 no permite una segunda ficha activa (índice único de MongoDB).");
+        }
+        catch (Exception ex)
+        {
+            _guardando = false;
+            Error(ex.Message);
+        }
+    }
+
+    private void Error(string texto)
+    {
+        _mensaje = texto;
+        _mensajeTipo = "danger";
+    }
+}

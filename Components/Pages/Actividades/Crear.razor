@@ -1,0 +1,103 @@
+@page "/actividades/crear"
+@inject ActividadService ActividadService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Nueva actividad · GimnasioPro</PageTitle>
+
+<a class="back-link" href="actividades">← Volver a la lista de actividades</a>
+
+<div class="page-head">
+    <div>
+        <h1 class="page-title">Nueva actividad</h1>
+        <p class="page-sub">Defina nombre, horario y cupo máximo. El cupo se valida al crear inscripciones.</p>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(_mensaje))
+{
+    <div class="alert alert-@_mensajeTipo">@_mensaje</div>
+}
+
+<div class="form-card">
+    <EditForm Model="_modelo" OnValidSubmit="GuardarAsync" FormName="crearActividad">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="form-row">
+            <div class="field">
+                <label class="field-label" for="nombre">Nombre *</label>
+                <InputText id="nombre" class="input" @bind-Value="_modelo.Nombre" placeholder="Ej.: Cross Training" />
+                <ValidationMessage For="() => _modelo.Nombre" />
+            </div>
+            <div class="field">
+                <label class="field-label" for="categoria">Categoría *</label>
+                <InputText id="categoria" class="input" @bind-Value="_modelo.Categoria" placeholder="Ej.: Funcional" />
+                <ValidationMessage For="() => _modelo.Categoria" />
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="field">
+                <label class="field-label" for="horario">Horario *</label>
+                <InputText id="horario" class="input" @bind-Value="_modelo.Horario" placeholder="Ej.: 07:00 - 08:00" />
+                <ValidationMessage For="() => _modelo.Horario" />
+                <span class="field-hint">Formato: HH:MM - HH:MM</span>
+            </div>
+            <div class="field">
+                <label class="field-label" for="dia">Día de la semana *</label>
+                <InputSelect id="dia" class="select" @bind-Value="_modelo.DiaSemana">
+                    <option value="">Seleccione…</option>
+                    <option value="Lunes">Lunes</option>
+                    <option value="Martes">Martes</option>
+                    <option value="Miércoles">Miércoles</option>
+                    <option value="Jueves">Jueves</option>
+                    <option value="Viernes">Viernes</option>
+                    <option value="Sábado">Sábado</option>
+                    <option value="Domingo">Domingo</option>
+                </InputSelect>
+                <ValidationMessage For="() => _modelo.DiaSemana" />
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="field-label" for="cupo">Cupo máximo *</label>
+            <InputNumber id="cupo" class="input" @bind-Value="_modelo.CupoMaximo" ParsingErrorMessage="El campo {0} debe ser un número." />
+            <ValidationMessage For="() => _modelo.CupoMaximo" />
+            <span class="field-hint">Cantidad máxima de inscripciones activas que acepta la actividad.</span>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn-app btn-app-accent" disabled="@_guardando">Guardar actividad</button>
+            <a class="btn-app btn-app-ghost" href="actividades">Cancelar</a>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    private Actividad _modelo = new();
+    private bool _guardando;
+    private string? _mensaje;
+    private string _mensajeTipo = "success";
+
+    private async Task GuardarAsync()
+    {
+        _guardando = true;
+        try
+        {
+            await ActividadService.CrearAsync(_modelo);
+            NavigationManager.NavigateTo(
+                "/actividades?mensaje=" + Uri.EscapeDataString("La actividad se creó correctamente."));
+        }
+        catch (Exception ex)
+        {
+            _guardando = false;
+            Error($"No se pudo crear la actividad: {ex.Message}");
+        }
+    }
+
+    private void Error(string texto)
+    {
+        _mensaje = texto;
+        _mensajeTipo = "danger";
+    }
+}

@@ -1,0 +1,171 @@
+.nav-toggler {
+    display: none;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 1.4rem 1.35rem 1.1rem;
+}
+
+.brand-mark {
+    width: 2.6rem;
+    height: 2.6rem;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    background: var(--accent);
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 1.7rem;
+    line-height: 1;
+    border-radius: 4px;
+    transform: rotate(-4deg);
+    box-shadow: 3px 3px 0 rgba(198, 242, 78, 0.25);
+}
+
+.brand-copy {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.brand-name {
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #fff;
+    line-height: 1.05;
+}
+
+.brand-tag {
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.nav-burger {
+    display: none;
+    margin-left: auto;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1.3rem;
+    cursor: pointer;
+    padding: 0.2rem 0.45rem;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 3px;
+}
+
+.nav-scrollable {
+    height: calc(100vh - 5.6rem);
+    overflow-y: auto;
+    padding: 0.4rem 0.85rem 1.2rem;
+}
+
+.nav-group {
+    margin-bottom: 1.15rem;
+}
+
+.nav-group-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.17em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.4);
+    padding: 0 0.55rem;
+    margin-bottom: 0.45rem;
+}
+
+/* Relation badges: the rubric's 1:1 / 1:N / N:N markers, visible in the sidebar. */
+.rel-badge {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 0.12rem 0.45rem;
+    border-radius: 3px;
+    line-height: 1.3;
+}
+
+.rel-one-one {
+    background: var(--accent);
+    color: var(--ink);
+}
+
+.rel-one-many {
+    background: var(--amber);
+    color: var(--ink);
+}
+
+.rel-many-many {
+    background: var(--teal);
+    color: var(--ink);
+}
+
+.nav-item {
+    margin-bottom: 0.18rem;
+}
+
+.nav-item ::deep .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.58rem 0.6rem;
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.74);
+    font-size: 0.92rem;
+    font-weight: 600;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.nav-item ::deep .nav-link:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: #fff;
+}
+
+.nav-item ::deep .nav-link.active {
+    background: rgba(198, 242, 78, 0.12);
+    border-left-color: var(--accent);
+    color: var(--accent);
+}
+
+.nav-ico {
+    font-size: 0.7rem;
+    opacity: 0.75;
+}
+
+.nav-footer {
+    margin-top: 1.8rem;
+    padding: 0.7rem 0.6rem 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.32);
+}
+
+@media (max-width: 900px) {
+    .nav-burger {
+        display: block;
+    }
+
+    .nav-scrollable {
+        display: none;
+        height: auto;
+        max-height: 70vh;
+        padding-bottom: 1.4rem;
+    }
+
+    .nav-toggler:checked ~ .nav-scrollable {
+        display: block;
+    }
+}

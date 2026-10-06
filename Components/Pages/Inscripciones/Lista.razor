@@ -1,0 +1,193 @@
+@page "/inscripciones"
+@inject InscripcionService InscripcionService
+@inject SocioService SocioService
+@inject ActividadService ActividadService
+@inject IJSRuntime JS
+@using MongoDB.Driver
+
+<PageTitle>Inscripciones · GimnasioPro</PageTitle>
+
+<div class="page-head">
+    <div>
+        <h1 class="page-title">Inscripciones <span class="count-chip">@_inscripciones.Count</span></h1>
+        <p class="page-sub">
+            Colección intermedia de la relación <strong>N:N</strong> entre socios y actividades.
+            Se pueden <strong>crear</strong> y <strong>dar de baja</strong> (borrado lógico);
+            según la consigna, este módulo <strong>no tiene edición</strong>.
+        </p>
+    </div>
+    <a class="btn-app btn-app-accent" href="inscripciones/crear">+ Nueva inscripción</a>
+</div>
+
+@if (!string.IsNullOrEmpty(_mensaje))
+{
+    <div class="alert alert-@_mensajeTipo">@_mensaje</div>
+}
+
+<div class="toolbar">
+    <div class="field">
+        <label class="field-label" for="filtroSocio">Socio</label>
+        <select id="filtroSocio" class="select" @bind="_filtroSocio" @bind:after="CargarAsync">
+            <option value="">Todos los socios</option>
+            @foreach (var socio in _socios)
+            {
+                <option value="@socio.Id">@socio.Apellido, @socio.Nombre</option>
+            }
+        </select>
+    </div>
+    <div class="field">
+        <label class="field-label" for="filtroActividad">Actividad</label>
+        <select id="filtroActividad" class="select" @bind="_filtroActividad" @bind:after="CargarAsync">
+            <option value="">Todas las actividades</option>
+            @foreach (var actividad in _actividades)
+            {
+                <option value="@actividad.Id">@actividad.Nombre</option>
+            }
+        </select>
+    </div>
+    <div class="toolbar-spacer"></div>
+    <button class="btn-app btn-app-ghost" @onclick="CargarAsync">Actualizar</button>
+</div>
+
+@if (_inscripciones.Count == 0)
+{
+    <div class="empty-state">
+        <strong>No hay registros</strong>
+        <span class="empty-detail">
+            @(_filtroSocio != string.Empty || _filtroActividad != string.Empty
+                ? "Ninguna inscripción coincide con los filtros seleccionados."
+                : "Todavía no hay inscripciones. Cree la primera con «Nueva inscripción».")
+        </span>
+    </div>
+}
+else
+{
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Socio</th>
+                    <th>Actividad</th>
+                    <th>Fecha</th>
+                    <th>Estado</th>
+                    <th>Cupo</th>
+                    <th>Notas</th>
+                    <th class="col-actions">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var detalle in _inscripciones)
+                {
+                    <tr>
+                        <td data-label="Socio">
+                            <span class="cell-strong">@detalle.NombreSocio</span>
+                            <span class="cell-sub">DNI @detalle.DniSocio</span>
+                        </td>
+                        <td data-label="Actividad">@detalle.NombreActividad</td>
+                        <td data-label="Fecha">@detalle.Inscripcion.FechaInscripcion.ToString("dd/MM/yyyy")</td>
+                        <td data-label="Estado">
+                            <span class="pill @(detalle.Inscripcion.Estado == "Activa" ? "pill-ok" : "pill-danger")">
+                                @detalle.Inscripcion.Estado
+                            </span>
+                        </td>
+                        <td data-label="Cupo">
+                            <span class="pill pill-outline">@detalle.Cupo</span>
+                        </td>
+                        <td data-label="Notas">
+                            @(string.IsNullOrWhiteSpace(detalle.Inscripcion.Notas) ? "—" : detalle.Inscripcion.Notas)
+                        </td>
+                        <td data-label="Acciones">
+                            <div class="cell-actions">
+                                @* N:N WITHOUT UPDATE: there is intentionally no "Editar" action here. *@
+                                <button class="btn-app btn-app-sm btn-app-danger"
+                                        @onclick="() => DesactivarAsync(detalle)">Desactivar</button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<InscripcionDetalle> _inscripciones = new();
+    private List<Socio> _socios = new();
+    private List<Actividad> _actividades = new();
+    private string _filtroSocio = string.Empty;
+    private string _filtroActividad = string.Empty;
+    private string? _mensaje;
+    private string _mensajeTipo = "success";
+
+    [SupplyParameterFromQuery(Name = "mensaje")]
+    public string? Mensaje { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(Mensaje))
+        {
+            Exito(Mensaje);
+        }
+
+        try
+        {
+            _socios = await SocioService.GetActivosAsync();
+            _actividades = await ActividadService.GetActivasAsync();
+        }
+        catch (Exception ex)
+        {
+            Error($"No se pudieron cargar los filtros: {ex.Message}");
+        }
+
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            var socioId = ObjectId.TryParse(_filtroSocio, out var s) ? s : (ObjectId?)null;
+            var actividadId = ObjectId.TryParse(_filtroActividad, out var a) ? a : (ObjectId?)null;
+            _inscripciones = await InscripcionService.GetDetallesAsync(socioId, actividadId);
+        }
+        catch (Exception ex)
+        {
+            Error($"No se pudieron cargar las inscripciones: {ex.Message}");
+        }
+    }
+
+    private async Task DesactivarAsync(InscripcionDetalle detalle)
+    {
+        var confirmado = await JS.InvokeAsync<bool>(
+            "confirm",
+            $"¿Seguro que desea dar de baja la inscripción de {detalle.NombreSocio} en «{detalle.NombreActividad}»? Se realizará un borrado lógico (Activo = false).");
+
+        if (!confirmado)
+        {
+            return;
+        }
+
+        try
+        {
+            await InscripcionService.DesactivarAsync(detalle.Inscripcion.Id);
+            await CargarAsync();
+            Exito($"La inscripción fue dada de baja (borrado lógico). El cupo quedó disponible.");
+        }
+        catch (Exception ex)
+        {
+            Error($"No se pudo dar de baja la inscripción: {ex.Message}");
+        }
+    }
+
+    private void Exito(string texto)
+    {
+        _mensaje = texto;
+        _mensajeTipo = "success";
+    }
+
+    private void Error(string texto)
+    {
+        _mensaje = texto;
+        _mensajeTipo = "danger";
+    }
+}

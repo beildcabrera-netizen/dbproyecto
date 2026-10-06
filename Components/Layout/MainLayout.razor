@@ -1,0 +1,24 @@
+﻿@inherits LayoutComponentBase
+
+<div class="page">
+    <aside class="sidebar">
+        <NavMenu />
+    </aside>
+
+    <div class="main-column">
+        <header class="top-bar">
+            <span class="top-bar-title">Sistema de gestión deportiva</span>
+            <span class="top-bar-chip"><span class="chip-dot"></span>MongoDB · GimnasioDB</span>
+        </header>
+
+        <article class="content">
+            @Body
+        </article>
+    </div>
+</div>
+
+<div id="blazor-error-ui">
+    Se produjo un error inesperado.
+    <a href="" class="reload">Recargar</a>
+    <a class="dismiss">🗙</a>
+</div>

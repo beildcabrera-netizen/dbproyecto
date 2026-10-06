@@ -1,0 +1,154 @@
+@page "/inscripciones/crear"
+@inject InscripcionService InscripcionService
+@inject SocioService SocioService
+@inject ActividadService ActividadService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Nueva inscripción · GimnasioPro</PageTitle>
+
+<a class="back-link" href="inscripciones">← Volver a la lista de inscripciones</a>
+
+<div class="page-head">
+    <div>
+        <h1 class="page-title">Nueva inscripción</h1>
+        <p class="page-sub">
+            Vínculo <strong>N:N</strong> entre un socio y una actividad. Reglas que se validan antes de guardar:
+            sin inscripción activa duplicada y sin superar el cupo máximo.
+        </p>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(_mensaje))
+{
+    <div class="alert alert-@_mensajeTipo">@_mensaje</div>
+}
+
+<div class="form-card">
+    <EditForm Model="_modelo" OnValidSubmit="GuardarAsync" FormName="crearInscripcion">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="field">
+            <label class="field-label" for="socio">Socio *</label>
+            <select id="socio" class="select @(_socioTocado && string.IsNullOrEmpty(_socioSeleccionado) ? "invalid" : "")"
+                    @bind="_socioSeleccionado">
+                <option value="">Seleccione un socio…</option>
+                @foreach (var socio in _socios)
+                {
+                    <option value="@socio.Id">@socio.Apellido, @socio.Nombre — DNI @socio.Dni</option>
+                }
+            </select>
+            @if (_socioTocado && string.IsNullOrEmpty(_socioSeleccionado))
+            {
+                <span class="form-error-inline">Debe seleccionar un socio activo.</span>
+            }
+            <span class="field-hint">Solo se listan socios activos.</span>
+        </div>
+
+        <div class="field">
+            <label class="field-label" for="actividad">Actividad *</label>
+            <select id="actividad" class="select @(_actividadTocada && string.IsNullOrEmpty(_actividadSeleccionada) ? "invalid" : "")"
+                    @bind="_actividadSeleccionada">
+                <option value="">Seleccione una actividad…</option>
+                @foreach (var actividad in _actividades)
+                {
+                    <option value="@actividad.Id">@actividad.Nombre — @actividad.DiaSemana @actividad.Horario (@_inscritos.GetValueOrDefault(actividad.Id)/@actividad.CupoMaximo)</option>
+                }
+            </select>
+            @if (_actividadTocada && string.IsNullOrEmpty(_actividadSeleccionada))
+            {
+                <span class="form-error-inline">Debe seleccionar una actividad activa.</span>
+            }
+            <span class="field-hint">Se muestra la ocupación actual: inscriptos / cupo máximo.</span>
+        </div>
+
+        <div class="field">
+            <label class="field-label" for="notas">Notas</label>
+            <InputTextArea id="notas" class="textarea" @bind-Value="_modelo.Notas" placeholder="Observaciones sobre la inscripción… (opcional)" />
+            <ValidationMessage For="() => _modelo.Notas" />
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn-app btn-app-accent" disabled="@_guardando">Guardar inscripción</button>
+            <a class="btn-app btn-app-ghost" href="inscripciones">Cancelar</a>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    private readonly Inscripcion _modelo = new();
+    private List<Socio> _socios = new();
+    private List<Actividad> _actividades = new();
+    private Dictionary<ObjectId, long> _inscritos = new();
+    private string _socioSeleccionado = string.Empty;
+    private string _actividadSeleccionada = string.Empty;
+    private bool _socioTocado;
+    private bool _actividadTocada;
+    private bool _guardando;
+    private string? _mensaje;
+    private string _mensajeTipo = "success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _socios = await SocioService.GetActivosAsync();
+            _actividades = await ActividadService.GetActivasAsync();
+            _inscritos = await InscripcionService.ContarPorActividadAsync();
+        }
+        catch (Exception ex)
+        {
+            Error($"No se pudieron cargar los datos: {ex.Message}");
+        }
+    }
+
+    private async Task GuardarAsync()
+    {
+        _socioTocado = true;
+        _actividadTocada = true;
+
+        if (string.IsNullOrEmpty(_socioSeleccionado))
+        {
+            Error("Debe seleccionar un socio activo.");
+            return;
+        }
+
+        if (string.IsNullOrEmpty(_actividadSeleccionada))
+        {
+            Error("Debe seleccionar una actividad activa.");
+            return;
+        }
+
+        if (!ObjectId.TryParse(_socioSeleccionado, out var socioId) ||
+            !ObjectId.TryParse(_actividadSeleccionada, out var actividadId))
+        {
+            Error("El socio o la actividad seleccionada no son válidos.");
+            return;
+        }
+
+        _guardando = true;
+        try
+        {
+            // Business rules (duplicate ACTIVE enrollment / full capacity) live in the service.
+            await InscripcionService.CrearAsync(socioId, actividadId, _modelo.Notas);
+            NavigationManager.NavigateTo(
+                "/inscripciones?mensaje=" + Uri.EscapeDataString("La inscripción se creó correctamente."));
+        }
+        catch (InvalidOperationException ex)
+        {
+            _guardando = false;
+            Error(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _guardando = false;
+            Error($"No se pudo crear la inscripción: {ex.Message}");
+        }
+    }
+
+    private void Error(string texto)
+    {
+        _mensaje = texto;
+        _mensajeTipo = "danger";
+    }
+}

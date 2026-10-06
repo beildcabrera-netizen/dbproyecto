@@ -1,0 +1,124 @@
+@page "/entrenadores/{Id}/editar"
+@inject EntrenadorService EntrenadorService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Editar entrenador · GimnasioPro</PageTitle>
+
+<a class="back-link" href="entrenadores">← Volver a la lista de entrenadores</a>
+
+@if (_cargado && _modelo is null)
+{
+    <div class="empty-state">
+        <strong>Entrenador no encontrado</strong>
+        <span class="empty-detail">El identificador recibido no corresponde a ningún entrenador.</span>
+    </div>
+}
+else if (_modelo is not null)
+{
+    <div class="page-head">
+        <div>
+            <h1 class="page-title">Editar entrenador</h1>
+            <p class="page-sub">Modifique los campos y confirme los cambios.</p>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_mensaje))
+    {
+        <div class="alert alert-@_mensajeTipo">@_mensaje</div>
+    }
+
+    <div class="form-card">
+        <EditForm Model="_modelo" OnValidSubmit="GuardarAsync" FormName="editarEntrenador">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="form-row">
+                <div class="field">
+                    <label class="field-label" for="nombre">Nombre *</label>
+                    <InputText id="nombre" class="input" @bind-Value="_modelo.Nombre" />
+                    <ValidationMessage For="() => _modelo.Nombre" />
+                </div>
+                <div class="field">
+                    <label class="field-label" for="apellido">Apellido *</label>
+                    <InputText id="apellido" class="input" @bind-Value="_modelo.Apellido" />
+                    <ValidationMessage For="() => _modelo.Apellido" />
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="field">
+                    <label class="field-label" for="email">Correo electrónico *</label>
+                    <InputText id="email" class="input" @bind-Value="_modelo.Email" />
+                    <ValidationMessage For="() => _modelo.Email" />
+                </div>
+                <div class="field">
+                    <label class="field-label" for="telefono">Teléfono *</label>
+                    <InputText id="telefono" class="input" @bind-Value="_modelo.Telefono" />
+                    <ValidationMessage For="() => _modelo.Telefono" />
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="field">
+                    <label class="field-label" for="especialidad">Especialidad *</label>
+                    <InputText id="especialidad" class="input" @bind-Value="_modelo.Especialidad" />
+                    <ValidationMessage For="() => _modelo.Especialidad" />
+                </div>
+                <div class="field">
+                    <label class="field-label" for="contratacion">Fecha de contratación *</label>
+                    <InputDate id="contratacion" class="input" @bind-Value="_modelo.FechaContratacion" />
+                    <ValidationMessage For="() => _modelo.FechaContratacion" />
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-app btn-app-accent" disabled="@_guardando">Guardar cambios</button>
+                <a class="btn-app btn-app-ghost" href="entrenadores/@Id">Cancelar</a>
+            </div>
+        </EditForm>
+    </div>
+}
+
+@code {
+    [Parameter] public string Id { get; set; } = string.Empty;
+
+    private Entrenador? _modelo;
+    private bool _cargado;
+    private bool _guardando;
+    private string? _mensaje;
+    private string _mensajeTipo = "success";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!ObjectId.TryParse(Id, out var entrenadorId))
+        {
+            _cargado = true;
+            return;
+        }
+
+        _modelo = await EntrenadorService.GetPorIdAsync(entrenadorId);
+        _cargado = true;
+    }
+
+    private async Task GuardarAsync()
+    {
+        if (_modelo is null)
+        {
+            return;
+        }
+
+        _guardando = true;
+        try
+        {
+            await EntrenadorService.ActualizarAsync(_modelo);
+            NavigationManager.NavigateTo(
+                "/entrenadores?mensaje=" + Uri.EscapeDataString("Los datos del entrenador se actualizaron correctamente."));
+        }
+        catch (Exception ex)
+        {
+            _guardando = false;
+            _mensaje = $"No se pudieron guardar los cambios: {ex.Message}";
+            _mensajeTipo = "danger";
+        }
+    }
+}

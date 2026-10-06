@@ -1,0 +1,247 @@
+@page "/socios/{Id}"
+@inject SocioService SocioService
+@inject FichaMedicaService FichaMedicaService
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+
+<PageTitle>Detalle de socio · GimnasioPro</PageTitle>
+
+<a class="back-link" href="socios">← Volver a la lista de socios</a>
+
+@if (!string.IsNullOrEmpty(_mensaje))
+{
+    <div class="alert alert-@_mensajeTipo">@_mensaje</div>
+}
+
+@if (_error is not null)
+{
+    <div class="empty-state">
+        <strong>Socio no encontrado</strong>
+        <span class="empty-detail">@_error</span>
+    </div>
+}
+else if (_socio is not null)
+{
+    <div class="page-head">
+        <div>
+            <h1 class="page-title">@_socio.Nombre @_socio.Apellido</h1>
+            <p class="page-sub">
+                DNI <span class="mono">@_socio.Dni</span> ·
+                @( _socio.Activo ? "Socio activo" : "Socio inactivo" )
+            </p>
+        </div>
+        <div class="cell-actions">
+            <a class="btn-app btn-app-dark" href="socios/@_socio.Id/editar">Editar socio</a>
+            @if (_socio.Activo)
+            {
+                <button class="btn-app btn-app-danger" @onclick="DesactivarSocioAsync">Desactivar socio</button>
+            }
+        </div>
+    </div>
+
+    <section class="panel">
+        <div class="panel-head">
+            <h2>Datos del socio</h2>
+            <span class="pill @(_socio.Activo ? "pill-ok" : "pill-off")">@(_socio.Activo ? "Activo" : "Inactivo")</span>
+        </div>
+        <div class="detail-grid">
+            <div class="detail-item">
+                <span class="detail-label">Nombre completo</span>
+                <span class="detail-value">@_socio.Nombre @_socio.Apellido</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">DNI</span>
+                <span class="detail-value mono">@_socio.Dni</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Correo electrónico</span>
+                <span class="detail-value">@_socio.Email</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Teléfono</span>
+                <span class="detail-value mono">@_socio.Telefono</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Fecha de nacimiento</span>
+                <span class="detail-value">@_socio.FechaNacimiento.ToString("dd/MM/yyyy")</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Fecha de alta</span>
+                <span class="detail-value">@_socio.FechaAlta.ToString("dd/MM/yyyy")</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-head">
+            <h2>Ficha médica <span class="rel-tag rel-one-one">1:1</span></h2>
+            @if (_ficha is not null)
+            {
+                <div class="cell-actions">
+                    <a class="btn-app btn-app-dark" href="fichas/@_socio.Id">Editar ficha</a>
+                    <button class="btn-app btn-app-danger" @onclick="EliminarFichaAsync">Eliminar ficha</button>
+                </div>
+            }
+        </div>
+
+        @if (_ficha is null)
+        {
+            <div class="empty-state">
+                <strong>Sin ficha médica</strong>
+                <span class="empty-detail">Este socio todavía no tiene ficha médica. Cree la única ficha permitida por la relación 1:1.</span>
+            </div>
+            <div class="form-actions" style="border-top: none; margin-top: 1rem; padding-top: 0;">
+                <a class="btn-app btn-app-accent" href="fichas/@_socio.Id">+ Crear ficha médica</a>
+            </div>
+        }
+        else
+        {
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <span class="detail-label">Peso</span>
+                    <span class="detail-value">@_ficha.Peso.ToString("0.#") kg</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Altura</span>
+                    <span class="detail-value">@_ficha.Altura.ToString("0") cm</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Tipo de sangre</span>
+                    <span class="detail-value">@_ficha.TipoSangre</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Alergias</span>
+                    <span class="detail-value">@(string.IsNullOrWhiteSpace(_ficha.Alergias) ? "Ninguna informada" : _ficha.Alergias)</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Observaciones</span>
+                    <span class="detail-value">@(string.IsNullOrWhiteSpace(_ficha.Observaciones) ? "—" : _ficha.Observaciones)</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Última actualización</span>
+                    <span class="detail-value">@_ficha.FechaActualizacion.ToString("dd/MM/yyyy HH:mm")</span>
+                </div>
+            </div>
+        }
+    </section>
+
+    <section class="panel">
+        <div class="panel-head">
+            <h2>Baja lógica</h2>
+        </div>
+        <div class="danger-zone">
+            <strong>¿Por qué no se borra el registro?</strong>
+            <p>
+                En esta aplicación las eliminaciones son <strong>siempre lógicas</strong>: el documento
+                se conserva y solo cambia el campo <span class="mono">Activo</span> a <span class="mono">false</span>,
+                de modo que el historial permanezca en MongoDB.
+            </p>
+            @if (_socio.Activo)
+            {
+                <button class="btn-app btn-app-danger" @onclick="DesactivarSocioAsync">Desactivar socio (Activo = false)</button>
+            }
+            else
+            {
+                <span class="pill pill-off">El socio ya está desactivado</span>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter] public string Id { get; set; } = string.Empty;
+
+    private Socio? _socio;
+    private FichaMedica? _ficha;
+    private string? _error;
+    private string? _mensaje;
+    private string _mensajeTipo = "success";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!ObjectId.TryParse(Id, out var socioId))
+        {
+            _socio = null;
+            _error = "El identificador del socio no es válido.";
+            return;
+        }
+
+        await CargarAsync(socioId);
+    }
+
+    private async Task CargarAsync(ObjectId socioId)
+    {
+        try
+        {
+            _socio = await SocioService.GetPorIdAsync(socioId);
+            _ficha = _socio is null ? null : await FichaMedicaService.GetActivaPorSocioAsync(socioId);
+            _error = _socio is null ? "El socio indicado no existe o fue eliminado lógicamente." : null;
+        }
+        catch (Exception ex)
+        {
+            _error = $"No se pudo consultar MongoDB: {ex.Message}";
+        }
+    }
+
+    private async Task DesactivarSocioAsync()
+    {
+        if (_socio is null)
+        {
+            return;
+        }
+
+        var confirmado = await JS.InvokeAsync<bool>(
+            "confirm",
+            $"¿Seguro que desea desactivar a {_socio.Nombre} {_socio.Apellido}? Se realizará un borrado lógico (Activo = false).");
+
+        if (!confirmado)
+        {
+            return;
+        }
+
+        try
+        {
+            await SocioService.DesactivarAsync(_socio.Id);
+            NavigationManager.NavigateTo(
+                "/socios?mensaje=" + Uri.EscapeDataString("El socio fue desactivado (borrado lógico)."));
+        }
+        catch (Exception ex)
+        {
+            Exito($"No se pudo desactivar el socio: {ex.Message}", "danger");
+        }
+    }
+
+    private async Task EliminarFichaAsync()
+    {
+        if (_socio is null)
+        {
+            return;
+        }
+
+        var confirmado = await JS.InvokeAsync<bool>(
+            "confirm",
+            "¿Seguro que desea eliminar la ficha médica? Se realizará un borrado lógico y podrá crear una nueva después.");
+
+        if (!confirmado)
+        {
+            return;
+        }
+
+        try
+        {
+            await FichaMedicaService.DesactivarAsync(_socio.Id);
+            await CargarAsync(_socio.Id);
+            Exito("La ficha médica fue eliminada (borrado lógico). Ya puede crear una nueva.", "success");
+        }
+        catch (Exception ex)
+        {
+            Exito($"No se pudo eliminar la ficha: {ex.Message}", "danger");
+        }
+    }
+
+    private void Exito(string texto, string tipo)
+    {
+        _mensaje = texto;
+        _mensajeTipo = tipo;
+    }
+}
